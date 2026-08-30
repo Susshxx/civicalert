@@ -536,11 +536,10 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
           },
         );
       } else {
-        // Fallback: show OTP in console for development
-        console.log("OTP (Development):", newOtp);
-        setOtpError(`Development mode: Your OTP is ${newOtp}`);
+        setOtpError("Email delivery is not configured. Please add EmailJS environment variables.");
+        return;
       }
-      
+
       setOtpSent(true);
       setError("OTP sent to your email. Please check your inbox.");
     } catch (err) {
