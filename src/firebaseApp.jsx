@@ -174,6 +174,30 @@ const saveProfileToRegistry = (profileData) => {
   writeProfileRegistry(registry);
 };
 
+const reservedAdminEmails = new Set([
+  "admin.gov@incidentreport.com",
+]);
+
+const isReservedAdminEmail = async (email) => {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) return false;
+  if (reservedAdminEmails.has(normalizedEmail)) return true;
+
+  if (!db) return false;
+
+  try {
+    const snapshot = await getDocs(collection(db, "users"));
+    return snapshot.docs.some((docSnapshot) => {
+      const user = docSnapshot.data() || {};
+      const savedEmail = String(user.email || "").trim().toLowerCase();
+      const role = String(user.role || "").trim();
+      return savedEmail === normalizedEmail && ["System Administrator", "Department Officer"].includes(role);
+    });
+  } catch {
+    return false;
+  }
+};
+
 const saveProfileToFirestore = async (profileData) => {
   if (!db || !profileData?.email) return;
   const email = String(profileData.email).trim().toLowerCase();
@@ -568,6 +592,11 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
       return;
     }
 
+    if (await isReservedAdminEmail(form.email)) {
+      setOtpError("This email is reserved for administrator access. Please use a different email for your user profile.");
+      return;
+    }
+
     setSendingOtp(true);
     setOtpError("");
     
@@ -619,6 +648,13 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
       return;
     }
 
+    if (await isReservedAdminEmail(trimmedEmail)) {
+      setError("This email is unavailable. Please use a different email for your user profile.");
+      setAlreadyRegistered(false);
+      setProfileLoaded(false);
+      return;
+    }
+
     const stored = await loadSavedProfileRecord(trimmedEmail);
     if (!stored) {
       setError("This email is not registered yet. Please fill the profile manually.");
@@ -634,6 +670,12 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
 
   const loadRegisteredProfile = async () => {
     const trimmedEmail = form.email.trim().toLowerCase();
+
+    if (await isReservedAdminEmail(trimmedEmail)) {
+      setError("This email is reserved for administrator access. Please use a different email for your user profile.");
+      return;
+    }
+
     const stored = await loadSavedProfileRecord(trimmedEmail);
 
     if (!stored) {
@@ -662,7 +704,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
     setError("Saved profile loaded successfully.");
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const trimmedName = form.name.trim();
@@ -677,6 +719,11 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
 
     if (!trimmedEmail || !validateEmail(trimmedEmail)) {
       setError("Please enter a valid email address.");
+      return;
+    }
+
+    if (await isReservedAdminEmail(trimmedEmail)) {
+      setError("This email is reserved for administrator access. Please use a different email for your user profile.");
       return;
     }
 
