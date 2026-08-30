@@ -193,6 +193,56 @@ const saveProfileToFirestore = async (profileData) => {
   await setDoc(doc(db, "userProfiles", email), profileDoc, { merge: true });
 };
 
+const loadSavedProfileRecord = async (email) => {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const localRecord = readProfileRegistry()[normalizedEmail] || null;
+  if (!db) return localRecord;
+
+  try {
+    const snapshot = await getDoc(doc(db, "userProfiles", normalizedEmail));
+    if (!snapshot.exists()) return localRecord;
+
+    const dbRecord = snapshot.data();
+    const merged = {
+      ...(localRecord || {}),
+      ...dbRecord,
+      email: dbRecord?.email || normalizedEmail,
+      password: dbRecord?.password || localRecord?.password || "",
+    };
+
+    if (Object.keys(merged).length) {
+      saveProfileToRegistry(merged);
+    }
+
+    return merged;
+  } catch {
+    return localRecord;
+  }
+};
+
+const hydratePersistedProfile = async () => {
+  const localValue = localStorage.getItem(PROFILE_KEY);
+  if (localValue) {
+    try {
+      const parsed = JSON.parse(localValue);
+      if (parsed?.email) return parsed;
+    } catch {
+      localStorage.removeItem(PROFILE_KEY);
+    }
+  }
+
+  const savedEmail = window.localStorage.getItem(REPORTER_EMAIL_KEY)?.trim().toLowerCase();
+  if (!savedEmail) return null;
+
+  const savedProfile = await loadSavedProfileRecord(savedEmail);
+  if (savedProfile) {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(savedProfile));
+  }
+  return savedProfile || null;
+};
+
 const errorText = (error) => {
   if (
     error?.code === "auth/configuration-not-found" ||
@@ -477,7 +527,8 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   const [otpError, setOtpError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
-  const registeredProfileLocked = alreadyRegistered || isEmailVerified;
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const profileDetailsLocked = alreadyRegistered && !profileLoaded;
 
   useEffect(() => {
     if (!error) return undefined;
@@ -561,36 +612,36 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
     }
   };
 
-  const lookupRegisteredProfile = () => {
+  const lookupRegisteredProfile = async () => {
     const trimmedEmail = form.email.trim();
     if (!trimmedEmail || !validateEmail(trimmedEmail)) {
       setError("Please enter a valid email address before checking registration.");
       return;
     }
 
-    const registry = readProfileRegistry();
-    const stored = registry[trimmedEmail.toLowerCase()];
+    const stored = await loadSavedProfileRecord(trimmedEmail);
     if (!stored) {
       setError("This email is not registered yet. Please fill the profile manually.");
       setAlreadyRegistered(false);
+      setProfileLoaded(false);
       return;
     }
 
     setAlreadyRegistered(true);
+    setProfileLoaded(false);
     setError("Email found. Enter the saved password to auto-fill your previous details.");
   };
 
-  const loadRegisteredProfile = () => {
+  const loadRegisteredProfile = async () => {
     const trimmedEmail = form.email.trim().toLowerCase();
-    const registry = readProfileRegistry();
-    const stored = registry[trimmedEmail];
+    const stored = await loadSavedProfileRecord(trimmedEmail);
 
     if (!stored) {
       setError("This email is not registered yet.");
       return;
     }
 
-    if (!form.password || form.password !== stored.password) {
+    if (!form.password || form.password !== String(stored.password || "")) {
       setError("Incorrect password for this saved profile.");
       return;
     }
@@ -607,6 +658,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
     });
     setIsEmailVerified(Boolean(stored.isEmailVerified));
     setAlreadyRegistered(false);
+    setProfileLoaded(true);
     setError("Saved profile loaded successfully.");
   };
 
@@ -687,7 +739,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                 onChange={handleInputChange}
                 placeholder="Your full name"
                 required
-                disabled={alreadyRegistered && !isEmailVerified}
+                disabled={profileDetailsLocked}
               />
             </label>
             <label>
@@ -768,7 +820,6 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                   required={!isEditing}
                   readOnly={isEditing}
                   className={isEditing ? "password-readonly" : ""}
-                  disabled={alreadyRegistered && !isEmailVerified}
                 />
                 {isEditing && (
                   <button
@@ -797,13 +848,13 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                 minLength="10"
                 maxLength="10"
                 placeholder="10-digit phone number"
-                disabled={alreadyRegistered && !isEmailVerified}
+                disabled={profileDetailsLocked}
               />
             </label>
             <LocationField
               form={form}
               update={update}
-              disabled={alreadyRegistered && !isEmailVerified}
+              disabled={profileDetailsLocked}
             />
           </div>
 
@@ -1180,15 +1231,18 @@ function PublicApp() {
   }, []);
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem(PROFILE_KEY);
-    if (savedProfile) {
+    const restoreProfile = async () => {
       try {
-        const parsedProfile = JSON.parse(savedProfile);
-        setProfile(parsedProfile);
+        const savedProfile = await hydratePersistedProfile();
+        if (savedProfile) {
+          setProfile(savedProfile);
+        }
       } catch {
         localStorage.removeItem(PROFILE_KEY);
       }
-    }
+    };
+
+    restoreProfile();
   }, []);
 
   useEffect(() => {
