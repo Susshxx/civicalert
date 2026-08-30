@@ -45,6 +45,7 @@ const blank = {
 const REPORTER_EMAIL_KEY = "civicalert-reporter-email";
 const REPORTER_IP_KEY = "civicalert-reporter-ip";
 const REPORTER_ID_KEY = "civicalert-reporter-id";
+const PROFILE_KEY = "civicalert-user-profile";
 const PROFILE_REGISTRY_KEY = "civicalert-profile-registry";
 const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
@@ -1256,8 +1257,6 @@ function PublicApp() {
   const [loading, setLoading] = useState(true);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profile, setProfile] = useState(null);
-
-  const PROFILE_KEY = "civicalert-user-profile";
 
   useEffect(() => {
     if (!message) return undefined;

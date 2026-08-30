@@ -1,5 +1,5 @@
 import { deleteApp, getApp, getApps, initializeApp } from 'firebase/app'
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth'
+import { browserLocalPersistence, createUserWithEmailAndPassword, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 
@@ -18,6 +18,12 @@ export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean)
 const app = isFirebaseConfigured ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
+
+if (auth) {
+  setPersistence(auth, browserLocalPersistence).catch(() => {
+    // Ignore persistence errors and continue with the default Firebase session.
+  })
+}
 
 export async function createDepartmentAccount(email, password) {
   if (!app) throw new Error('Firebase is not configured.')
