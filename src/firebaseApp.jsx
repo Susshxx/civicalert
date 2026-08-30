@@ -45,6 +45,7 @@ const blank = {
 const REPORTER_EMAIL_KEY = "civicalert-reporter-email";
 const REPORTER_IP_KEY = "civicalert-reporter-ip";
 const REPORTER_ID_KEY = "civicalert-reporter-id";
+const PROFILE_REGISTRY_KEY = "civicalert-profile-registry";
 const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
@@ -59,6 +60,39 @@ const validateEmail = (email) => {
 
 const validatePassword = (password) => {
   return password.length >= 6;
+};
+
+const PROFILE_REMINDER_KEY = "civicalert-profile-reminder";
+
+const isProfileComplete = (profileData) => {
+  if (!profileData) return false;
+  const name = String(profileData.name || "").trim();
+  const email = String(profileData.email || "").trim();
+  const phone = String(profileData.phone || "").replace(/\D/g, "");
+  const location = String(profileData.location || "").trim();
+  const password = String(profileData.password || "").trim();
+
+  return Boolean(
+    name &&
+      email &&
+      validateEmail(email) &&
+      profileData.isEmailVerified &&
+      password.length >= 6 &&
+      phone.length === 10 &&
+      location,
+  );
+};
+
+const shouldPromptForProfile = (profileData) => !isProfileComplete(profileData);
+
+const shouldShowProfileReminder = () => {
+  const lastPrompt = Number(window.localStorage.getItem(PROFILE_REMINDER_KEY) || "0");
+  if (!lastPrompt) return true;
+  return Date.now() - lastPrompt >= 24 * 60 * 60 * 1000;
+};
+
+const markProfileReminder = () => {
+  window.localStorage.setItem(PROFILE_REMINDER_KEY, String(Date.now()));
 };
 
 if (EMAILJS_PUBLIC_KEY) {
@@ -114,6 +148,51 @@ const resolveMapsUrl = (report) =>
   report?.mapsUrl ||
   buildMapsUrl(report?.location, report?.latitude, report?.longitude);
 
+const readProfileRegistry = () => {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_REGISTRY_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeProfileRegistry = (profiles) => {
+  window.localStorage.setItem(PROFILE_REGISTRY_KEY, JSON.stringify(profiles));
+};
+
+const saveProfileToRegistry = (profileData) => {
+  const email = String(profileData?.email || "").trim().toLowerCase();
+  if (!email) return;
+  const registry = readProfileRegistry();
+  registry[email] = {
+    ...profileData,
+    email,
+    password: profileData?.password || registry[email]?.password || "",
+  };
+  writeProfileRegistry(registry);
+};
+
+const saveProfileToFirestore = async (profileData) => {
+  if (!db || !profileData?.email) return;
+  const email = String(profileData.email).trim().toLowerCase();
+  const profileDoc = {
+    ...profileData,
+    email,
+    password: String(profileData.password || "").trim(),
+    name: String(profileData.name || "").trim(),
+    phone: String(profileData.phone || "").replace(/\D/g, "").slice(0, 10),
+    location: String(profileData.location || "").trim(),
+    latitude: profileData.latitude ?? "",
+    longitude: profileData.longitude ?? "",
+    accuracy: profileData.accuracy ?? "",
+    isEmailVerified: Boolean(profileData.isEmailVerified),
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, "userProfiles", email), profileDoc, { merge: true });
+};
+
 const errorText = (error) => {
   if (
     error?.code === "auth/configuration-not-found" ||
@@ -154,9 +233,10 @@ function Shell({ children, admin = false, onProfileClick }) {
   );
 }
 
-function LocationField({ form, update }) {
+function LocationField({ form, update, disabled = false }) {
   const [state, setState] = useState({ status: "idle" });
   const detect = () => {
+    if (disabled) return;
     if (!navigator.geolocation)
       return setState({
         status: "error",
@@ -208,6 +288,7 @@ function LocationField({ form, update }) {
           name="location"
           value={form.location}
           onChange={(event) => {
+            if (disabled) return;
             update(event);
             if (event.target.value.trim()) {
               update({ target: { name: "latitude", value: "" } });
@@ -218,12 +299,13 @@ function LocationField({ form, update }) {
           }}
           required
           placeholder="Street, landmark or area"
+          disabled={disabled}
         />
         <button
           className="location-button"
           type="button"
           onClick={detect}
-          disabled={state.status === "loading"}
+          disabled={disabled || state.status === "loading"}
         >
           {state.status === "loading" ? "Detecting..." : "Live Gps"}
         </button>
@@ -394,6 +476,8 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const registeredProfileLocked = alreadyRegistered || isEmailVerified;
 
   useEffect(() => {
     if (!error) return undefined;
@@ -478,33 +562,106 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
     }
   };
 
+  const lookupRegisteredProfile = () => {
+    const trimmedEmail = form.email.trim();
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
+      setError("Please enter a valid email address before checking registration.");
+      return;
+    }
+
+    const registry = readProfileRegistry();
+    const stored = registry[trimmedEmail.toLowerCase()];
+    if (!stored) {
+      setError("This email is not registered yet. Please fill the profile manually.");
+      setAlreadyRegistered(false);
+      return;
+    }
+
+    setAlreadyRegistered(true);
+    setError("Email found. Enter the saved password to auto-fill your previous details.");
+  };
+
+  const loadRegisteredProfile = () => {
+    const trimmedEmail = form.email.trim().toLowerCase();
+    const registry = readProfileRegistry();
+    const stored = registry[trimmedEmail];
+
+    if (!stored) {
+      setError("This email is not registered yet.");
+      return;
+    }
+
+    if (!form.password || form.password !== stored.password) {
+      setError("Incorrect password for this saved profile.");
+      return;
+    }
+
+    setForm({
+      name: stored.name || "",
+      email: stored.email || "",
+      phone: stored.phone || "",
+      location: stored.location || "",
+      latitude: stored.latitude || "",
+      longitude: stored.longitude || "",
+      accuracy: stored.accuracy || "",
+      password: stored.password || "",
+    });
+    setIsEmailVerified(Boolean(stored.isEmailVerified));
+    setAlreadyRegistered(false);
+    setError("Saved profile loaded successfully.");
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
-    
-    // Validate email
-    if (!form.email || !validateEmail(form.email)) {
+
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim();
+    const trimmedLocation = form.location.trim();
+    const digitsPhone = String(form.phone || "").replace(/\D/g, "");
+
+    if (!trimmedName) {
+      setError("Please enter your full name.");
+      return;
+    }
+
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
-    
-    // For new profiles, validate password
+
+    if (!trimmedLocation) {
+      setError("Please enter your location or use Live GPS.");
+      return;
+    }
+
+    if (!digitsPhone || digitsPhone.length !== 10) {
+      setError("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     if (!isEditing && (!form.password || !validatePassword(form.password))) {
       setError("Password must be at least 6 characters.");
       return;
     }
-    
-    // Check if email is verified
+
     if (!isEmailVerified) {
       setError("Please verify your email address before saving.");
       return;
     }
-    
-    // Don't overwrite existing password with empty value
-    const profileToSave = { ...form, isEmailVerified };
+
+    const profileToSave = {
+      ...form,
+      name: trimmedName,
+      email: trimmedEmail,
+      location: trimmedLocation,
+      phone: digitsPhone,
+      isEmailVerified,
+    };
+
     if (isEditing && !form.password) {
       profileToSave.password = profile.password;
     }
-    
+
     onSave(profileToSave);
     onClose();
   };
@@ -531,6 +688,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                 onChange={handleInputChange}
                 placeholder="Your full name"
                 required
+                disabled={alreadyRegistered && !isEmailVerified}
               />
             </label>
             <label>
@@ -545,14 +703,31 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                 required
               />
             </label>
-            
+
             {!isEmailVerified && !isEditing && (
               <div className="otp-section">
                 <button
                   type="button"
                   className="outline-button"
+                  onClick={lookupRegisteredProfile}
+                  disabled={alreadyRegistered}
+                >
+                  Already registered
+                </button>
+                {alreadyRegistered && (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={loadRegisteredProfile}
+                  >
+                    Load saved profile
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="outline-button"
                   onClick={sendOtp}
-                  disabled={sendingOtp || !form.email}
+                  disabled={sendingOtp || !form.email || alreadyRegistered}
                 >
                   {sendingOtp ? "Sending..." : "Send OTP"}
                 </button>
@@ -594,6 +769,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                   required={!isEditing}
                   readOnly={isEditing}
                   className={isEditing ? "password-readonly" : ""}
+                  disabled={alreadyRegistered && !isEmailVerified}
                 />
                 {isEditing && (
                   <button
@@ -622,9 +798,14 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
                 minLength="10"
                 maxLength="10"
                 placeholder="10-digit phone number"
+                disabled={alreadyRegistered && !isEmailVerified}
               />
             </label>
-            <LocationField form={form} update={update} />
+            <LocationField
+              form={form}
+              update={update}
+              disabled={alreadyRegistered && !isEmailVerified}
+            />
           </div>
 
           {error && <p className="location-error">{error}</p>}
@@ -1011,15 +1192,41 @@ function PublicApp() {
     }
   }, []);
 
-  const handleProfileSave = (profileData) => {
-    setProfile(profileData);
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profileData));
-    
-    // Also save email separately for report tracking across sessions
-    if (profileData.email && profileData.isEmailVerified) {
-      window.localStorage.setItem(REPORTER_EMAIL_KEY, profileData.email.trim().toLowerCase());
+  useEffect(() => {
+    if (!isFirebaseConfigured || profileDialogOpen) return;
+    if (shouldPromptForProfile(profile) && shouldShowProfileReminder()) {
+      const timer = window.setTimeout(() => {
+        setProfileDialogOpen(true);
+        markProfileReminder();
+      }, 10000);
+      return () => window.clearTimeout(timer);
     }
-    
+  }, [profile, profileDialogOpen]);
+
+  const handleProfileSave = async (profileData) => {
+    const cleanedProfile = {
+      ...profileData,
+      email: String(profileData.email || "").trim().toLowerCase(),
+      name: String(profileData.name || "").trim(),
+      phone: String(profileData.phone || "").replace(/\D/g, "").slice(0, 10),
+      location: String(profileData.location || "").trim(),
+    };
+
+    setProfile(cleanedProfile);
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(cleanedProfile));
+    saveProfileToRegistry(cleanedProfile);
+
+    try {
+      await saveProfileToFirestore(cleanedProfile);
+    } catch (error) {
+      setMessage(errorText(error));
+      return;
+    }
+
+    if (cleanedProfile.email && cleanedProfile.isEmailVerified) {
+      window.localStorage.setItem(REPORTER_EMAIL_KEY, cleanedProfile.email.trim().toLowerCase());
+    }
+
     setMessage("Profile saved successfully.");
   };
   useEffect(() => {

@@ -17,6 +17,15 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
       allow write: if isAdmin();
     }
+    match /userProfiles/{email} {
+      allow create: if request.resource.data.email is string
+        && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        && request.resource.data.email == email
+        && request.resource.data.password is string
+        && request.resource.data.password.size() >= 6;
+      allow read: if true;
+      allow update, delete: if true;
+    }
     match /reports/{reportId} {
       allow create: if true;
       allow read: if canViewCategory(resource.data.categoryId);
