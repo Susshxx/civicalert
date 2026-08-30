@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && (request.auth.token.email == 'admin.gov@incidentreport.com' || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'System Administrator');
+    }
+    function canViewCategory(categoryId) {
+      return signedIn() && (isAdmin() || categoryId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.categoryIds);
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /users/{userId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+    match /reports/{reportId} {
+      allow create: if true;
+      allow read: if canViewCategory(resource.data.categoryId);
+      allow update: if canViewCategory(resource.data.categoryId);
+      allow delete: if isAdmin();
+    }
+  }
+}
