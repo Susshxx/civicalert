@@ -555,8 +555,12 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const profileDetailsLocked = alreadyRegistered && !profileLoaded;
-  const initialFormSnapshot = createFormState();
-  const isDirty = JSON.stringify(form) !== JSON.stringify(initialFormSnapshot);
+  const savedProfileSnapshot = createFormState(profile);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedProfileSnapshot);
+  const saveButtonDisabled = !isEmailVerified || !isDirty;
+  const saveButtonClassName = saveButtonDisabled
+    ? "primary-button save-button-inactive"
+    : "primary-button save-button-active";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -931,9 +935,9 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
               Cancel
             </button>
             <button
-              className="primary-button"
+              className={saveButtonClassName}
               type="submit"
-              disabled={!isEmailVerified || !isDirty}
+              disabled={saveButtonDisabled}
             >
               Save Profile
             </button>

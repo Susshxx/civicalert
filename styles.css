@@ -18,6 +18,10 @@
 .brand-mark{background:var(--red)}
 .primary-button{background:var(--red)}
 .primary-button:hover{background:#b81032}
+.save-button-active{background:var(--red);border-color:var(--red)}
+.save-button-active:hover{background:#b81032;border-color:#b81032}
+.save-button-inactive{background:#9aa6b2;border-color:#9aa6b2;color:#fff;cursor:not-allowed}
+.save-button-inactive:hover{background:#9aa6b2;border-color:#9aa6b2}
 .location-button{border-color:var(--blue);background:#edf4fb;color:var(--blue)}
 button{font-family:inherit}
 .brand{border:0;background:transparent;padding:0}
