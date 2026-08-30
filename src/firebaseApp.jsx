@@ -533,16 +533,17 @@ function EvidenceField({ files, setFiles }) {
 
 function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   const isEditing = !!profile?.password; // User has an existing profile with password
-  const [form, setForm] = useState({
-    name: profile?.name || "",
-    email: profile?.email || "",
-    phone: profile?.phone || "",
-    location: profile?.location || "",
-    latitude: profile?.latitude || "",
-    longitude: profile?.longitude || "",
-    accuracy: profile?.accuracy || "",
-    password: profile?.password || "",
+  const createFormState = (currentProfile = profile) => ({
+    name: currentProfile?.name || "",
+    email: currentProfile?.email || "",
+    phone: currentProfile?.phone || "",
+    location: currentProfile?.location || "",
+    latitude: currentProfile?.latitude || "",
+    longitude: currentProfile?.longitude || "",
+    accuracy: currentProfile?.accuracy || "",
+    password: currentProfile?.password || "",
   });
+  const [form, setForm] = useState(createFormState());
   const [error, setError] = useState("");
   const [otp, setOtp] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
@@ -554,6 +555,23 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const profileDetailsLocked = alreadyRegistered && !profileLoaded;
+  const initialFormSnapshot = createFormState();
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialFormSnapshot);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const nextForm = createFormState();
+    setForm(nextForm);
+    setIsEmailVerified(Boolean(profile?.isEmailVerified || false));
+    setOtp("");
+    setGeneratedOtp("");
+    setOtpSent(false);
+    setSendingOtp(false);
+    setOtpError("");
+    setAlreadyRegistered(false);
+    setProfileLoaded(false);
+    setShowPassword(false);
+  }, [isOpen, profile]);
 
   useEffect(() => {
     if (!error) return undefined;
@@ -912,7 +930,11 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
             <button type="button" className="outline-button" onClick={onClose}>
               Cancel
             </button>
-            <button className="primary-button" type="submit" disabled={!isEmailVerified}>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={!isEmailVerified || !isDirty}
+            >
               Save Profile
             </button>
           </div>
