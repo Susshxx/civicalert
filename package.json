@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node api/server.js\" \"vite\"",
-    "api": "node api/server.js",
+    "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },

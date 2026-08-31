@@ -20,11 +20,13 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   auth,
   createDepartmentAccount,
   db,
   isFirebaseConfigured,
+  storage,
 } from "./firebase";
 import Portal from "./portal";
 import "../styles.css";
@@ -1267,12 +1269,18 @@ function Reports({ reports, setView }) {
 
 async function uploadEvidence(files) {
   if (!files?.length) return [];
-  const body = new FormData();
-  files.forEach((file) => body.append("photos", file));
-  const response = await fetch("/api/evidence", { method: "POST", body });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Evidence upload failed.");
-  return result.evidence;
+  if (!storage) throw new Error("Firebase Storage is not configured.");
+
+  const uploaded = await Promise.all(
+    files.map(async (file) => {
+      const safeName = `${Date.now()}-${Math.random().toString(16).slice(2)}-${String(file.name || "upload").replace(/\s+/g, "-")}`;
+      const fileRef = ref(storage, `evidence/${safeName}`);
+      await uploadBytes(fileRef, file);
+      return { url: await getDownloadURL(fileRef) };
+    }),
+  );
+
+  return uploaded;
 }
 
 function PublicApp() {
