@@ -1267,6 +1267,21 @@ function Reports({ reports, setView }) {
                   {item.status}
                 </span>
                 <p>{item.reference}</p>
+                <p className="report-date">
+                  {(() => {
+                    const date = item.createdAt;
+                    if (!date) return "—";
+                    const dateObj = typeof date === "string" ? new Date(date) : date?.toDate?.() || new Date(date);
+                    return dateObj.toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    });
+                  })()}
+                </p>
               </div>
             </article>
           ))
