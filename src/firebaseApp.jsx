@@ -1578,6 +1578,7 @@ function PublicApp() {
         mapsUrl,
         reference,
         category: category?.name || "Unassigned",
+        categoryId: form.categoryId || "",
         reporter: form.name || profile?.name || "Anonymous",
         reporterIp,
         reporterId,
