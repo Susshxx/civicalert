@@ -1429,8 +1429,28 @@ function PublicApp() {
       }
 
       const snapshot = await getDocs(collection(db, "reports"));
-      const filtered = snapshot.docs
-        .map((item) => ({ id: item.id, ...item.data() }))
+      const allDocs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+
+      // Backfill timelines for reports that don't have them
+      const backfillPromises = allDocs
+        .filter((report) => !Array.isArray(report.timeline) || !report.timeline.length)
+        .map((report) => {
+          const fallbackTimeline = [{
+            label: "Report submitted",
+            status: report.status || "Received",
+            note: `Submitted by ${report.reporter || "Anonymous"}`,
+            timestamp: report.createdAt?.toDate ? report.createdAt.toDate().toISOString() : report.createdAt || new Date().toISOString(),
+          }];
+          return updateDoc(doc(db, "reports", report.id), {
+            timeline: fallbackTimeline,
+          }).catch((error) => {
+            console.error(`Failed to backfill timeline for report ${report.id}:`, error);
+          });
+        });
+
+      await Promise.all(backfillPromises);
+
+      const filtered = allDocs
         .filter((report) => {
           const email = String(report.email || "").trim().toLowerCase();
           const ip = String(report.reporterIp || "").trim();
@@ -1465,14 +1485,8 @@ function PublicApp() {
                 label: "Report submitted",
                 status: report.status || "Received",
                 note: `Submitted by ${report.reporter || "Anonymous"}`,
-                timestamp: report.createdAt?.toDate ? report.createdAt.toDate().toISOString() : new Date().toISOString(),
+                timestamp: report.createdAt?.toDate ? report.createdAt.toDate().toISOString() : report.createdAt || new Date().toISOString(),
               }];
-
-          if (!Array.isArray(report.timeline) || !report.timeline.length) {
-            updateDoc(doc(db, "reports", report.id), {
-              timeline: existingTimeline,
-            }).catch(() => {});
-          }
 
           return { ...report, timeline: existingTimeline };
         })
