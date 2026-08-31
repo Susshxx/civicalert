@@ -51,6 +51,8 @@ const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const EMAILJS_OTP_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_OTP_TEMPLATE_ID;
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -1265,22 +1267,35 @@ function Reports({ reports, setView }) {
   );
 }
 
-const fileToDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Failed to read image file."));
-    reader.readAsDataURL(file);
-  });
-
 async function uploadEvidence(files) {
   if (!files?.length) return [];
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error("Cloudinary upload preset is not configured.");
+  }
 
   const uploaded = await Promise.all(
     files.map(async (file) => {
-      const dataUrl = await fileToDataUrl(file);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      formData.append("folder", "civicalert/evidence");
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error?.message || "Cloudinary upload failed.");
+      }
+
       return {
-        url: dataUrl,
+        url: result.secure_url || result.url,
+        publicId: result.public_id,
         name: file.name || "evidence-image",
       };
     }),
@@ -1497,8 +1512,7 @@ function PublicApp() {
           .map((item) => {
             const candidate = item?.url || item?.secure_url || item?.link || "";
             if (!candidate || typeof candidate !== "string") return "";
-            if (candidate.startsWith("data:")) return "";
-            return candidate;
+            return candidate.startsWith("http") ? candidate : "";
           })
           .filter(Boolean)
           .slice(0, 3);
