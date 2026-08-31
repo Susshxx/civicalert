@@ -1494,8 +1494,14 @@ function PublicApp() {
       const authorityEmail = category?.email?.trim();
       if (authorityEmail) {
         const evidenceLinks = (evidence || [])
-          .map((item) => item?.url || item?.secure_url || item?.link || "")
-          .filter(Boolean);
+          .map((item) => {
+            const candidate = item?.url || item?.secure_url || item?.link || "";
+            if (!candidate || typeof candidate !== "string") return "";
+            if (candidate.startsWith("data:")) return "";
+            return candidate;
+          })
+          .filter(Boolean)
+          .slice(0, 3);
 
         const emailBody = [
           `New report received: ${reference}`,
@@ -1510,7 +1516,7 @@ function PublicApp() {
           `Status: ${report.status}`,
           evidenceLinks.length
             ? `Evidence links:\n${evidenceLinks.join("\n")}`
-            : "Evidence links: No uploaded evidence",
+            : "Evidence links: No uploaded evidence (photos stored in the app record, not emailed)",
           `View in system: ${window.location.origin}`,
         ].join("\n\n");
 
@@ -1529,7 +1535,7 @@ function PublicApp() {
           status: report.status,
           maps_url: report.mapsUrl || "",
           view_link: window.location.origin,
-          image_links: evidenceLinks.length ? evidenceLinks.join("\n") : "No uploaded evidence",
+          image_links: evidenceLinks.length ? evidenceLinks.join("\n") : "No uploaded evidence (photos stored in the app record, not emailed)",
           evidence_count: String(evidenceLinks.length),
           message: emailBody,
         };
