@@ -1247,6 +1247,20 @@ function Reports({ reports, setView }) {
                     ))}
                   </div>
                 )}
+                <div className="report-timeline">
+                  <strong>Timeline</strong>
+                  {(Array.isArray(item.timeline) && item.timeline.length ? item.timeline : [{ label: "Report received", status: item.status, note: "Report logged in the system" }]).slice(-4).map((event, index) => (
+                    <div className="timeline-item" key={`${item.id}-timeline-${index}`}>
+                      <span className="timeline-dot" />
+                      <div>
+                        <strong>{event.label || event.status || "Update"}</strong>
+                        <small>
+                          {event.note || "Updated"}
+                        </small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="report-meta">
                 <span className={`status ${statusClass(item.status)}`}>
@@ -1497,6 +1511,14 @@ function PublicApp() {
         reporterIp,
         reporterId,
         status: "Received",
+        timeline: [
+          {
+            label: "Report submitted",
+            status: "Received",
+            timestamp: serverTimestamp(),
+            note: `Submitted by ${form.name || profile?.name || "Anonymous"}`,
+          },
+        ],
         createdAt: serverTimestamp(),
       };
       const saved = await addDoc(collection(db, "reports"), report);
@@ -1739,13 +1761,34 @@ function AdminPortal() {
   };
   const updateStatus = async (reportId, status) => {
     try {
+      const target = reports.find((item) => item.id === reportId);
+      const nextTimeline = Array.isArray(target?.timeline)
+        ? [
+            ...target.timeline,
+            {
+              label: `Status updated to ${status}`,
+              status,
+              timestamp: serverTimestamp(),
+              note: `Admin updated the case to ${status}`,
+            },
+          ]
+        : [
+            {
+              label: `Status updated to ${status}`,
+              status,
+              timestamp: serverTimestamp(),
+              note: `Admin updated the case to ${status}`,
+            },
+          ];
+
       await updateDoc(doc(db, "reports", reportId), {
         status,
         updatedAt: serverTimestamp(),
+        timeline: nextTimeline,
       });
       setReports(
         reports.map((item) =>
-          item.id === reportId ? { ...item, status } : item,
+          item.id === reportId ? { ...item, status, timeline: nextTimeline } : item,
         ),
       );
       setMessage("Report status updated.");
@@ -1820,6 +1863,9 @@ function AdminPortal() {
                   {reports.map((item) => {
                     const priority = item.priority === "Urgent" ? "Critical" : (item.priority || "Normal");
                     const priorityClass = priority.toLowerCase().replace(/\s+/g, "-");
+                    const timelineEvents = Array.isArray(item.timeline) && item.timeline.length
+                      ? item.timeline.slice(-3)
+                      : [{ label: "Report logged", note: "Report received in the system" }];
                     return (
                       <tr key={item.id}>
                         <td>{item.reference}</td>
@@ -1827,6 +1873,14 @@ function AdminPortal() {
                           <strong>{item.title}</strong>
                           <br />
                           <small>{item.location}</small>
+                          <div className="timeline-inline">
+                            {timelineEvents.map((event, index) => (
+                              <div className="timeline-inline-item" key={`${item.id}-admin-${index}`}>
+                                <span className="timeline-inline-dot" />
+                                <span>{event.label || event.status || "Update"}</span>
+                              </div>
+                            ))}
+                          </div>
                         </td>
                         <td>{item.category}</td>
                         <td>

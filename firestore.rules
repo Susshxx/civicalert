@@ -28,8 +28,8 @@ service cloud.firestore {
     }
     match /reports/{reportId} {
       allow create: if true;
-      allow read: if canViewCategory(resource.data.categoryId);
-      allow update: if canViewCategory(resource.data.categoryId);
+      allow read: if true;
+      allow update: if true;
       allow delete: if isAdmin();
     }
   }
