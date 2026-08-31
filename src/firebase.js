@@ -1,7 +1,6 @@
 import { deleteApp, getApp, getApps, initializeApp } from 'firebase/app'
 import { browserLocalPersistence, createUserWithEmailAndPassword, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
 
 
 const firebaseConfig = {
@@ -19,7 +18,6 @@ export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean)
 const app = isFirebaseConfigured ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
-export const storage = app ? getStorage(app) : null
 
 if (auth) {
   setPersistence(auth, browserLocalPersistence).catch(() => {

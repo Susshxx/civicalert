@@ -20,13 +20,11 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   auth,
   createDepartmentAccount,
   db,
   isFirebaseConfigured,
-  storage,
 } from "./firebase";
 import Portal from "./portal";
 import "../styles.css";
@@ -1267,16 +1265,24 @@ function Reports({ reports, setView }) {
   );
 }
 
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
+
 async function uploadEvidence(files) {
   if (!files?.length) return [];
-  if (!storage) throw new Error("Firebase Storage is not configured.");
 
   const uploaded = await Promise.all(
     files.map(async (file) => {
-      const safeName = `${Date.now()}-${Math.random().toString(16).slice(2)}-${String(file.name || "upload").replace(/\s+/g, "-")}`;
-      const fileRef = ref(storage, `evidence/${safeName}`);
-      await uploadBytes(fileRef, file);
-      return { url: await getDownloadURL(fileRef) };
+      const dataUrl = await fileToDataUrl(file);
+      return {
+        url: dataUrl,
+        name: file.name || "evidence-image",
+      };
     }),
   );
 
