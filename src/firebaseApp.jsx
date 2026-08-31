@@ -1477,8 +1477,8 @@ function PublicApp() {
           return { ...report, timeline: existingTimeline };
         })
         .sort((a, b) => {
-          const left = a.createdAt?.seconds ?? 0;
-          const right = b.createdAt?.seconds ?? 0;
+          const left = getSortableTimestamp(a.createdAt);
+          const right = getSortableTimestamp(b.createdAt);
           return right - left;
         });
 
@@ -1489,6 +1489,30 @@ function PublicApp() {
       setReports([]);
     });
   }, [profile]);
+
+  const getSortableTimestamp = (value) => {
+    if (!value) return 0;
+
+    if (typeof value === "string") {
+      const parsed = Date.parse(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    if (typeof value?.toDate === "function") {
+      return value.toDate().getTime();
+    }
+
+    if (typeof value?.seconds === "number") {
+      return value.seconds * 1000;
+    }
+
+    if (typeof value === "number") {
+      return value;
+    }
+
+    return 0;
+  };
+
   const submit = async (form) => {
     if (!isFirebaseConfigured)
       return setMessage(
