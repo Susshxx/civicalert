@@ -51,8 +51,8 @@ const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const EMAILJS_OTP_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_OTP_TEMPLATE_ID;
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "n8ydiog9";
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "civicalert_unsigned";
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -1270,7 +1270,9 @@ function Reports({ reports, setView }) {
 async function uploadEvidence(files) {
   if (!files?.length) return [];
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error("Cloudinary upload preset is not configured.");
+    throw new Error(
+      "Cloudinary upload preset is not configured. Create an unsigned upload preset in Cloudinary and set VITE_CLOUDINARY_UPLOAD_PRESET in the .env file.",
+    );
   }
 
   const uploaded = await Promise.all(
