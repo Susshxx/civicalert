@@ -1458,6 +1458,24 @@ function PublicApp() {
             sameCurrentIp
           );
         })
+        .map((report) => {
+          const existingTimeline = Array.isArray(report.timeline) && report.timeline.length
+            ? report.timeline
+            : [{
+                label: "Report submitted",
+                status: report.status || "Received",
+                note: `Submitted by ${report.reporter || "Anonymous"}`,
+                timestamp: report.createdAt?.toDate ? report.createdAt.toDate().toISOString() : new Date().toISOString(),
+              }];
+
+          if (!Array.isArray(report.timeline) || !report.timeline.length) {
+            updateDoc(doc(db, "reports", report.id), {
+              timeline: existingTimeline,
+            }).catch(() => {});
+          }
+
+          return { ...report, timeline: existingTimeline };
+        })
         .sort((a, b) => {
           const left = a.createdAt?.seconds ?? 0;
           const right = b.createdAt?.seconds ?? 0;
@@ -1519,7 +1537,7 @@ function PublicApp() {
             note: `Submitted by ${form.name || profile?.name || "Anonymous"}`,
           },
         ],
-        createdAt: serverTimestamp(),
+        createdAt: new Date().toISOString(),
       };
       const saved = await addDoc(collection(db, "reports"), report);
       if (normalizedEmail) {
