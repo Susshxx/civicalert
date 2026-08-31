@@ -1,4 +1,3 @@
-import formidable from 'formidable';
 import { v2 as cloudinary } from 'cloudinary';
 
 export const config = {
@@ -37,22 +36,22 @@ export default async function handler(request, response) {
   }
 
   try {
-    const form = formidable({
-      multiples: true,
-      maxFiles: 8,
-      maxFileSize: 10 * 1024 * 1024,
-      filter: ({ mimetype }) => Boolean(mimetype && mimetype.startsWith('image/')),
-    });
-
-    const [, files] = await form.parse(request);
-    const photoFiles = Array.isArray(files.photos) ? files.photos : files.photos ? [files.photos] : [];
+    const formData = await request.formData();
+    const photoFiles = formData.getAll('photos').filter(Boolean);
 
     if (!photoFiles.length) {
       return response.status(400).json({ error: 'At least one image is required.' });
     }
 
     const results = await Promise.all(
-      photoFiles.map((file) => uploadBuffer(file.filepath ? require('fs').readFileSync(file.filepath) : file.buffer)),
+      photoFiles.map(async (file) => {
+        if (!(file instanceof File)) {
+          throw new Error('Uploaded evidence must be a valid image file.');
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        return uploadBuffer(buffer);
+      }),
     );
 
     return response.status(200).json({
