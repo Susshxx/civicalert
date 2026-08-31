@@ -1515,7 +1515,7 @@ function PublicApp() {
           {
             label: "Report submitted",
             status: "Received",
-            timestamp: serverTimestamp(),
+            timestamp: new Date().toISOString(),
             note: `Submitted by ${form.name || profile?.name || "Anonymous"}`,
           },
         ],
@@ -1768,7 +1768,7 @@ function AdminPortal() {
             {
               label: `Status updated to ${status}`,
               status,
-              timestamp: serverTimestamp(),
+              timestamp: new Date().toISOString(),
               note: `Admin updated the case to ${status}`,
             },
           ]
@@ -1776,7 +1776,7 @@ function AdminPortal() {
             {
               label: `Status updated to ${status}`,
               status,
-              timestamp: serverTimestamp(),
+              timestamp: new Date().toISOString(),
               note: `Admin updated the case to ${status}`,
             },
           ];
