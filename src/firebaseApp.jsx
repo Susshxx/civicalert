@@ -950,7 +950,7 @@ function ProfileDialog({ isOpen, onClose, onSave, profile }) {
   );
 }
 
-function ReportForm({ categories, onSubmit, onOpenMyReports, profile }) {
+function ReportForm({ categories, onSubmit, onOpenMyReports, profile, siteStats = { total: 0, fulfilled: 0, closed: 0 } }) {
   const [identified, setIdentified] = useState(false);
   const [files, setFiles] = useState([]);
   const [form, setForm] = useState(blank);
@@ -1011,6 +1011,11 @@ function ReportForm({ categories, onSubmit, onOpenMyReports, profile }) {
             <small>Reports are reviewed daily</small>
           </div>
         </div>
+      </div>
+      <div style={{ margin: "0 0 22px", padding: "4px 0" }}>
+        <h3 style={{ margin: 0, color: "#12355b", fontSize: "clamp(1.35rem, 2vw, 2.1rem)", fontWeight: 800, letterSpacing: "-0.04em" }}>
+          {siteStats.fulfilled} reports fulfilled
+        </h3>
       </div>
       <div className="report-layout">
         <form className="report-form panel" onSubmit={send}>
@@ -1186,6 +1191,8 @@ function ReportForm({ categories, onSubmit, onOpenMyReports, profile }) {
 function Reports({ reports, setView }) {
   const statusClass = (status = "Received") =>
     status.toLowerCase().replace(/\s+/g, "-");
+  const fulfilledReports = reports.filter((item) => ["Actioned", "Closed"].includes(item.status)).length;
+  const closedReports = reports.filter((item) => item.status === "Closed").length;
 
   return (
     <section>
@@ -1197,6 +1204,20 @@ function Reports({ reports, setView }) {
         <button className="outline-button" onClick={() => setView("report")}>
           + New report
         </button>
+      </div>
+      <div className="dashboard-grid" style={{ marginTop: "8px" }}>
+        <div className="stat">
+          <small>Total reports</small>
+          <strong>{reports.length}</strong>
+        </div>
+        <div className="stat">
+          <small>Fulfilled</small>
+          <strong>{fulfilledReports}</strong>
+        </div>
+        <div className="stat">
+          <small>Closed</small>
+          <strong>{closedReports}</strong>
+        </div>
       </div>
       <div className="report-list">
         {reports.length ? (
@@ -1338,6 +1359,7 @@ async function uploadEvidence(files) {
 function PublicApp() {
   const [categories, setCategories] = useState([]);
   const [reports, setReports] = useState([]);
+  const [siteStats, setSiteStats] = useState({ total: 0, fulfilled: 0, closed: 0 });
   const [view, setView] = useState("report");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1414,6 +1436,25 @@ function PublicApp() {
 
     setMessage("Profile saved successfully.");
   };
+  const loadSiteStats = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, "reports"));
+      const allReports = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      setSiteStats({
+        total: allReports.length,
+        fulfilled: allReports.filter((item) => ["Actioned", "Closed"].includes(item.status)).length,
+        closed: allReports.filter((item) => item.status === "Closed").length,
+      });
+    } catch {
+      setSiteStats({ total: 0, fulfilled: 0, closed: 0 });
+    }
+  };
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    loadSiteStats();
+  }, []);
+
   useEffect(() => {
     if (!isFirebaseConfigured) return;
 
@@ -1464,6 +1505,8 @@ function PublicApp() {
         });
 
       await Promise.all(backfillPromises);
+
+      await loadSiteStats();
 
       const filtered = allDocs
         .filter((report) => {
@@ -1594,6 +1637,7 @@ function PublicApp() {
         createdAt: new Date().toISOString(),
       };
       const saved = await addDoc(collection(db, "reports"), report);
+      await loadSiteStats();
       if (normalizedEmail) {
         window.localStorage.setItem(REPORTER_EMAIL_KEY, normalizedEmail);
       }
@@ -1711,6 +1755,7 @@ function PublicApp() {
             onSubmit={submit}
             onOpenMyReports={() => setView("track")}
             profile={profile}
+            siteStats={siteStats}
           />
         ) : (
           <Reports reports={reports} setView={setView} />
@@ -1910,6 +1955,18 @@ function AdminPortal() {
             <small>Needs attention</small>
             <strong>
               {reports.filter((item) => item.status === "Received").length}
+            </strong>
+          </div>
+          <div className="stat">
+            <small>Reports fulfilled</small>
+            <strong>
+              {reports.filter((item) => item.status === "Actioned").length}
+            </strong>
+          </div>
+          <div className="stat">
+            <small>Closed</small>
+            <strong>
+              {reports.filter((item) => item.status === "Closed").length}
             </strong>
           </div>
           <div className="stat">
