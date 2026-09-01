@@ -1422,7 +1422,7 @@ function PublicApp() {
 
   useEffect(() => {
     if (!isFirebaseConfigured || profileDialogOpen || reliefFundDialogOpen) return;
-    if (shouldPromptForProfile(profile) && shouldShowProfileReminder()) {
+    if (!profile?.isEmailVerified && shouldPromptForProfile(profile) && shouldShowProfileReminder()) {
       const timer = window.setTimeout(() => {
         setProfileDialogOpen(true);
         markProfileReminder();
