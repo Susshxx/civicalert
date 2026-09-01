@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://civicalert-sush.vercel.app/sitemap.xml
