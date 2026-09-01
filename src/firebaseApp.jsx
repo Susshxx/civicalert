@@ -1356,6 +1356,26 @@ async function uploadEvidence(files) {
   return uploaded;
 }
 
+function ReliefFundDialog({ isOpen, onClose }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="dialog-backdrop">
+      <div className="relief-fund-dialog">
+        <button className="relief-fund-close" onClick={onClose} aria-label="Close relief fund dialog">
+          ×
+        </button>
+        <h2>Donate for the needy</h2>
+        <p className="field-hint">Support the relief fund by scanning or downloading this QR code.</p>
+        <a className="relief-fund-download" href="/qrRelieffund.png" download="qrRelieffund.png">
+          <img className="relief-fund-qr" src="/qrRelieffund.png" alt="QR code for the relief fund. Click to download." />
+        </a>
+        <p className="relief-fund-hint">Click on the QR image to download</p>
+      </div>
+    </div>
+  );
+}
+
 function PublicApp() {
   const [categories, setCategories] = useState([]);
   const [reports, setReports] = useState([]);
@@ -1364,6 +1384,7 @@ function PublicApp() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [reliefFundDialogOpen, setReliefFundDialogOpen] = useState(true);
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
@@ -1400,7 +1421,7 @@ function PublicApp() {
   }, []);
 
   useEffect(() => {
-    if (!isFirebaseConfigured || profileDialogOpen) return;
+    if (!isFirebaseConfigured || profileDialogOpen || reliefFundDialogOpen) return;
     if (shouldPromptForProfile(profile) && shouldShowProfileReminder()) {
       const timer = window.setTimeout(() => {
         setProfileDialogOpen(true);
@@ -1408,7 +1429,7 @@ function PublicApp() {
       }, 10000);
       return () => window.clearTimeout(timer);
     }
-  }, [profile, profileDialogOpen]);
+  }, [profile, profileDialogOpen, reliefFundDialogOpen]);
 
   const handleProfileSave = async (profileData) => {
     const cleanedProfile = {
@@ -1783,6 +1804,10 @@ function PublicApp() {
         onClose={() => setProfileDialogOpen(false)}
         onSave={handleProfileSave}
         profile={profile}
+      />
+      <ReliefFundDialog
+        isOpen={reliefFundDialogOpen}
+        onClose={() => setReliefFundDialogOpen(false)}
       />
     </Shell>
   );
