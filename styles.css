@@ -115,11 +115,11 @@ button{font-family:inherit}
 .profile-dialog{position:relative;width:min(100%,500px);max-height:calc(100vh - 40px);overflow:auto;padding:32px;background:var(--white);border-top:5px solid var(--red);box-shadow:0 20px 60px rgba(0,25,65,.28)}
 .profile-dialog h2{margin:0 0 8px;color:var(--navy);font:800 25px/1.15 Manrope,sans-serif}
 .profile-dialog .dialog-close{position:absolute;right:14px;top:12px;border:0;background:transparent;color:var(--muted);font-size:25px;line-height:1;cursor:pointer}
-.relief-fund-dialog{position:relative;width:min(100%,420px);max-height:calc(100vh - 40px);overflow:auto;padding:42px 32px 32px;background:var(--white);border-top:5px solid var(--red);box-shadow:0 20px 60px rgba(0,25,65,.28);text-align:center}
-.relief-fund-dialog h2{margin:0 0 8px;color:var(--navy);font:800 25px/1.15 Manrope,sans-serif}
+.relief-fund-dialog{position:relative;width:min(100%,520px);max-height:calc(100vh - 40px);overflow:auto;padding:50px 40px 38px;background:var(--white);border-top:5px solid var(--red);box-shadow:0 20px 60px rgba(0,25,65,.28);text-align:center}
+.relief-fund-dialog h2{margin:0 0 10px;color:var(--navy);font:800 30px/1.15 Manrope,sans-serif}
 .relief-fund-close{position:absolute;right:14px;top:12px;border:0;background:transparent;color:var(--muted);font-size:25px;line-height:1;cursor:pointer}
 .relief-fund-download{display:block;cursor:pointer}
-.relief-fund-qr{display:block;width:min(100%,340px);height:auto;max-height:60vh;object-fit:contain;margin:20px auto 0}
+.relief-fund-qr{display:block;width:min(100%,420px);height:auto;max-height:60vh;object-fit:contain;margin:24px auto 0}
 .relief-fund-hint{margin:8px 0 0;color:var(--muted);font-size:11px}
 @media(max-width:520px){.relief-fund-dialog{width:100%;padding:42px 12px 24px}.relief-fund-qr{width:100%;max-width:360px;max-height:62vh}}
 .profile-section{border-top:1px solid var(--line);padding-top:20px;margin-top:20px}
