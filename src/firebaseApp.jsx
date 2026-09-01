@@ -1647,6 +1647,7 @@ function PublicApp() {
       window.localStorage.setItem(REPORTER_ID_KEY, reporterId);
 
       const authorityEmail = category?.email?.trim();
+      let emailSentToAuthority = false;
       if (authorityEmail) {
         const evidenceLinks = (evidence || [])
           .map((item) => {
@@ -1703,22 +1704,29 @@ function PublicApp() {
               EMAILJS_TEMPLATE_ID,
               templateParams,
             );
+            emailSentToAuthority = true;
           } else {
             const mailtoUrl = `mailto:${authorityEmail}?subject=${encodeURIComponent(
               `New CivicAlert report: ${reference}`,
             )}&body=${encodeURIComponent(emailBody)}`;
             window.location.href = mailtoUrl;
+            emailSentToAuthority = true;
           }
         } catch {
           const fallbackMailto = `mailto:${authorityEmail}?subject=${encodeURIComponent(
             `New CivicAlert report: ${reference}`,
           )}&body=${encodeURIComponent(emailBody)}`;
           window.location.href = fallbackMailto;
+          emailSentToAuthority = true;
         }
       }
 
       setReports((current) => [{ ...report, id: saved.id }, ...current]);
-      setMessage(`Report ${reference} submitted successfully.`);
+      setMessage(
+        emailSentToAuthority
+          ? `Report ${reference} submitted and email sent to the authority.`
+          : `Report ${reference} submitted successfully.`
+      );
       setView("track");
     } catch (error) {
       setMessage(errorText(error));
