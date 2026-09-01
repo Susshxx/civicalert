@@ -1508,11 +1508,17 @@ function PublicApp() {
 
       await loadSiteStats();
 
+      const primaryEmail = (profileEmail || storedEmail || "").trim().toLowerCase();
+
       const filtered = allDocs
         .filter((report) => {
           const email = String(report.email || "").trim().toLowerCase();
           const ip = String(report.reporterIp || "").trim();
           const id = String(report.reporterId || "").trim();
+
+          if (primaryEmail) {
+            return email === primaryEmail || id === getStableReporterId(primaryEmail);
+          }
 
           const sameEmail = Boolean(storedEmail && email === storedEmail);
           const sameProfileEmail = Boolean(profileEmail && email === profileEmail);
